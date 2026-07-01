@@ -46,6 +46,13 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
+      - name: Verify Azure Web App exists
+        run: |
+          az webapp show \
+            --name "${{ env.AZURE_WEBAPP_NAME }}" \
+            --resource-group "${{ env.AZURE_RESOURCE_GROUP }}" \
+            --output json
+
       - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v3
         with:
