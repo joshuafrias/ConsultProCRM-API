@@ -31,6 +31,7 @@ jobs:
           app-name: ${{ vars.AZURE_WEBAPP_NAME }}
           publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
           package: .
+          startup-file: npm start
 
       - name: Configure app settings
         uses: azure/appservice-settings@v1
@@ -41,5 +42,9 @@ jobs:
             [
               { "name": "BASE44_APP_ID", "value": "${{ secrets.BASE44_APP_ID }}", "slotSetting": false },
               { "name": "BASE44_API_KEY", "value": "${{ secrets.BASE44_API_KEY }}", "slotSetting": false },
-              { "name": "INBOUND_API_KEY", "value": "${{ secrets.INBOUND_API_KEY }}", "slotSetting": false }
+              { "name": "INBOUND_API_KEY", "value": "${{ secrets.INBOUND_API_KEY }}", "slotSetting": false },
+              { "name": "SCM_DO_BUILD_DURING_DEPLOYMENT", "value": "true", "slotSetting": false },
+              { "name": "ENABLE_ORYX_BUILD", "value": "true", "slotSetting": false },
+              { "name": "NODE_ENV", "value": "production", "slotSetting": false },
+              { "name": "PORT", "value": "8080", "slotSetting": false }
             ]
