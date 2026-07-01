@@ -11,6 +11,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    env:
+      AZURE_WEBAPP_NAME: ${{ vars.AZURE_WEBAPP_NAME || secrets.AZURE_WEBAPP_NAME }}
 
     steps:
       - name: Checkout source
@@ -25,17 +27,25 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Validate Azure app name
+        run: |
+          if [ -z "$AZURE_WEBAPP_NAME" ]; then
+            echo "AZURE_WEBAPP_NAME is not set. Add it as a repository variable or secret."
+            exit 1
+          fi
+          echo "Deploying to Azure Web App: $AZURE_WEBAPP_NAME"
+
       - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v3
         with:
-          app-name: ${{ vars.AZURE_WEBAPP_NAME }}
+          app-name: ${{ env.AZURE_WEBAPP_NAME }}
           publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
           package: .
 
       - name: Configure app settings
         uses: azure/appservice-settings@v1
         with:
-          app-name: ${{ vars.AZURE_WEBAPP_NAME }}
+          app-name: ${{ env.AZURE_WEBAPP_NAME }}
           app-settings-json: |
             [
               { "name": "BASE44_APP_ID", "value": "${{ secrets.BASE44_APP_ID }}", "slotSetting": false },
