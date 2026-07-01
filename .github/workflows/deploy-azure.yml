@@ -13,7 +13,6 @@ jobs:
       contents: read
     env:
       AZURE_WEBAPP_NAME: ${{ vars.AZURE_WEBAPP_NAME || secrets.AZURE_WEBAPP_NAME }}
-      AZURE_RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP || secrets.AZURE_RESOURCE_GROUP }}
 
     steps:
       - name: Checkout source
@@ -34,24 +33,22 @@ jobs:
             echo "AZURE_WEBAPP_NAME is not set. Add it as a repository variable or secret."
             exit 1
           fi
-          if [ -z "$AZURE_RESOURCE_GROUP" ]; then
-            echo "AZURE_RESOURCE_GROUP is not set. Add it as a repository variable or secret."
-            exit 1
-          fi
           echo "Deploying to Azure Web App: $AZURE_WEBAPP_NAME"
-          echo "Using resource group: $AZURE_RESOURCE_GROUP"
 
       - name: Azure login
         uses: azure/login@v2
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Verify Azure Web App exists
+      - name: Resolve Azure resource group
         run: |
-          az webapp show \
-            --name "${{ env.AZURE_WEBAPP_NAME }}" \
-            --resource-group "${{ env.AZURE_RESOURCE_GROUP }}" \
-            --output json
+          RESOURCE_GROUP=$(az webapp list --query "[?name=='${{ env.AZURE_WEBAPP_NAME }}'].resourceGroup | [0]" -o tsv)
+          if [ -z "$RESOURCE_GROUP" ]; then
+            echo "Could not find Azure Web App '${{ env.AZURE_WEBAPP_NAME }}' in the current subscription."
+            exit 1
+          fi
+          echo "Resolved resource group: $RESOURCE_GROUP"
+          echo "AZURE_RESOURCE_GROUP=$RESOURCE_GROUP" >> "$GITHUB_ENV"
 
       - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v3
