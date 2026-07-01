@@ -13,6 +13,7 @@ jobs:
       contents: read
     env:
       AZURE_WEBAPP_NAME: ${{ vars.AZURE_WEBAPP_NAME || secrets.AZURE_WEBAPP_NAME }}
+      AZURE_RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP || secrets.AZURE_RESOURCE_GROUP }}
 
     steps:
       - name: Checkout source
@@ -21,38 +22,46 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
           cache: 'npm'
 
       - name: Install dependencies
         run: npm ci
 
-      - name: Validate Azure app name
+      - name: Validate Azure config
         run: |
           if [ -z "$AZURE_WEBAPP_NAME" ]; then
             echo "AZURE_WEBAPP_NAME is not set. Add it as a repository variable or secret."
             exit 1
           fi
+          if [ -z "$AZURE_RESOURCE_GROUP" ]; then
+            echo "AZURE_RESOURCE_GROUP is not set. Add it as a repository variable or secret."
+            exit 1
+          fi
           echo "Deploying to Azure Web App: $AZURE_WEBAPP_NAME"
+          echo "Using resource group: $AZURE_RESOURCE_GROUP"
+
+      - name: Azure login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
 
       - name: Deploy to Azure Web App
-        uses: azure/webapps-deploy@v3
+        uses: azure/webapps-deploy@v4
         with:
           app-name: ${{ env.AZURE_WEBAPP_NAME }}
-          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
           package: .
 
       - name: Configure app settings
-        uses: azure/appservice-settings@v1
-        with:
-          app-name: ${{ env.AZURE_WEBAPP_NAME }}
-          app-settings-json: |
-            [
-              { "name": "BASE44_APP_ID", "value": "${{ secrets.BASE44_APP_ID }}", "slotSetting": false },
-              { "name": "BASE44_API_KEY", "value": "${{ secrets.BASE44_API_KEY }}", "slotSetting": false },
-              { "name": "INBOUND_API_KEY", "value": "${{ secrets.INBOUND_API_KEY }}", "slotSetting": false },
-              { "name": "SCM_DO_BUILD_DURING_DEPLOYMENT", "value": "true", "slotSetting": false },
-              { "name": "ENABLE_ORYX_BUILD", "value": "true", "slotSetting": false },
-              { "name": "NODE_ENV", "value": "production", "slotSetting": false },
-              { "name": "PORT", "value": "8080", "slotSetting": false }
-            ]
+        run: |
+          az webapp config appsettings set \
+            --name "${{ env.AZURE_WEBAPP_NAME }}" \
+            --resource-group "${{ env.AZURE_RESOURCE_GROUP }}" \
+            --settings \
+            BASE44_APP_ID="${{ secrets.BASE44_APP_ID }}" \
+            BASE44_API_KEY="${{ secrets.BASE44_API_KEY }}" \
+            INBOUND_API_KEY="${{ secrets.INBOUND_API_KEY }}" \
+            SCM_DO_BUILD_DURING_DEPLOYMENT=true \
+            ENABLE_ORYX_BUILD=true \
+            NODE_ENV=production \
+            PORT=8080
