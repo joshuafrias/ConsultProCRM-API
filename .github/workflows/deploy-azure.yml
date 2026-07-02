@@ -11,9 +11,11 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+
     env:
-      AZURE_WEBAPP_NAME: ${{ vars.AZURE_WEBAPP_NAME || secrets.AZURE_WEBAPP_NAME }}
-      AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID || secrets.AZURE_SUBSCRIPTION_ID }}
+      AZURE_WEBAPP_NAME: consultprocrm
+      AZURE_SUBSCRIPTION_ID: c1ccb321-4cd3-4c82-95ca-f9a8497cd7df
+      AZURE_RESOURCE_GROUP: ConsultPro-CRM
 
     steps:
       - name: Checkout source
@@ -30,11 +32,9 @@ jobs:
 
       - name: Validate Azure config
         run: |
-          if [ -z "$AZURE_WEBAPP_NAME" ]; then
-            echo "AZURE_WEBAPP_NAME is not set. Add it as a repository variable or secret."
-            exit 1
-          fi
           echo "Deploying to Azure Web App: $AZURE_WEBAPP_NAME"
+          echo "Azure subscription: $AZURE_SUBSCRIPTION_ID"
+          echo "Azure resource group: $AZURE_RESOURCE_GROUP"
 
       - name: Azure login
         uses: azure/login@v2
@@ -43,19 +43,16 @@ jobs:
 
       - name: Set Azure subscription
         run: |
-          if [ -n "$AZURE_SUBSCRIPTION_ID" ]; then
-            az account set --subscription "$AZURE_SUBSCRIPTION_ID"
-          fi
+          az account set --subscription "$AZURE_SUBSCRIPTION_ID"
 
-      - name: Resolve Azure resource group
+      - name: Debug Azure context
         run: |
-          RESOURCE_GROUP=$(az webapp list --query "[?name=='${{ env.AZURE_WEBAPP_NAME }}'].resourceGroup | [0]" -o tsv)
-          if [ -z "$RESOURCE_GROUP" ]; then
-            echo "Could not find Azure Web App '${{ env.AZURE_WEBAPP_NAME }}' in the current subscription."
-            exit 1
-          fi
-          echo "Resolved resource group: $RESOURCE_GROUP"
-          echo "AZURE_RESOURCE_GROUP=$RESOURCE_GROUP" >> "$GITHUB_ENV"
+          az account show --query "{Name:name, SubscriptionId:id}" -o table
+          az webapp show \
+            --name "$AZURE_WEBAPP_NAME" \
+            --resource-group "$AZURE_RESOURCE_GROUP" \
+            --query "{Name:name, ResourceGroup:resourceGroup, State:state}" \
+            -o table
 
       - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v3
@@ -66,8 +63,8 @@ jobs:
       - name: Configure app settings
         run: |
           az webapp config appsettings set \
-            --name "${{ env.AZURE_WEBAPP_NAME }}" \
-            --resource-group "${{ env.AZURE_RESOURCE_GROUP }}" \
+            --name "$AZURE_WEBAPP_NAME" \
+            --resource-group "$AZURE_RESOURCE_GROUP" \
             --settings \
             BASE44_APP_ID="${{ secrets.BASE44_APP_ID }}" \
             BASE44_API_KEY="${{ secrets.BASE44_API_KEY }}" \
