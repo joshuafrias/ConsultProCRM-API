@@ -8,9 +8,10 @@ export const getBase44 = () => {
     client = createClient({
       appId: config.base44.appId,
       headers: {
-        api_key: config.base44.apiKey
+        Authorization: `Bearer ${config.base44.accessToken}`
       }
     });
   }
+
   return client;
 };
